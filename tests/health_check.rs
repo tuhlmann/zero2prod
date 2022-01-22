@@ -1,12 +1,13 @@
 use sqlx::types::Uuid;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
-use zero2prod::configuration::{get_configuration, DatabaseSettings};
+use zero2prod::configuration::{get_configuration, DatabaseSettings, Settings};
 use zero2prod::startup::run;
 
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
+    pub config: Settings,
 }
 
 async fn spawn_app() -> TestApp {
@@ -24,7 +25,20 @@ async fn spawn_app() -> TestApp {
     TestApp {
         address,
         db_pool: connection_pool,
+        config: configuration,
     }
+}
+
+async fn cleanup_db(db_pool: &PgPool, config: &DatabaseSettings) {
+    db_pool.close().await;
+
+    let mut connection = PgConnection::connect(&config.connection_string_without_db())
+        .await
+        .expect("Failed to connect to Postgres");
+    connection
+        .execute(&*format!(r#"DROP DATABASE "{}";"#, config.database_name))
+        .await
+        .expect("Failed to create database.");
 }
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
@@ -66,6 +80,8 @@ async fn health_check_works() {
     // Assert
     assert!(response.status().is_success());
     assert_eq!(Some(0), response.content_length());
+
+    cleanup_db(&app.db_pool, &app.config.database).await
 }
 
 #[tokio::test]
@@ -94,6 +110,8 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 
     assert_eq!(saved.email, "ursula_le_guin@gmail.com");
     assert_eq!(saved.name, "le guin");
+
+    cleanup_db(&app.db_pool, &app.config.database).await
 }
 
 #[tokio::test]
@@ -126,4 +144,6 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
             error_message
         );
     }
+
+    cleanup_db(&app.db_pool, &app.config.database).await
 }
