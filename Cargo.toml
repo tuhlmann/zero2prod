@@ -47,12 +47,13 @@ secrecy = { version = "0.8", features = ["serde"] }
 version = "0.5.10"
 default-features = false
 features = [
-"runtime-actix-rustls",
-"macros",
-"postgres",
-"uuid",
-"chrono",
-"migrate"
+    "runtime-actix-rustls",
+    "macros",
+    "postgres",
+    "uuid",
+    "chrono",
+    "migrate",
+    "offline"
 ]
 
 [dev-dependencies]
